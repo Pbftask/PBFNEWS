@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PBF NEWS</title>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.6.11/firebase-database-compat.js"></script>
+  <style>
+    body { font-family: Arial; background: #f2f2f2; margin: 0; }
+    h1 { text-align: center; color: red; margin-top: 20px; }
+    .news { margin: 20px; padding: 10px; background: white; border-radius: 8px; }
+    .komentar { background: #eee; margin-top: 10px; padding: 8px; border-radius: 6px; }
+    .upload { position: fixed; bottom: 0; width: 100%; background: #ccc; padding: 10px; display: flex; flex-wrap: wrap; gap: 10px; box-shadow: 0 -2px 5px rgba(0,0,0,0.3); }
+    input, textarea, button { width: 100%; padding: 10px; border-radius: 8px; border: none; margin-bottom: 10px; }
+    button { background: red; color: white; font-weight: bold; cursor: pointer; }
+    #news-list { margin-bottom: 280px; }
+  </style>
+</head>
+<body>
+
+<h1>PBF NEWS</h1>
+
+<div id="news-list"></div>
+
+<div class="upload">
+  <input type="text" id="judul" placeholder="Judul Berita">
+  <textarea id="berita" placeholder="Isi Berita"></textarea>
+  <button onclick="upload()">UPLOAD BERITA</button>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCWdoHnwSfSeOVtiSuRDlKoOszaEpzoork",
+  authDomain: "pbf-newspp.firebaseapp.com",
+  databaseURL: "https://pbf-newspp-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "pbf-newspp"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+function upload() {
+  const judul = document.getElementById('judul').value.trim();
+  const berita = document.getElementById('berita').value.trim();
+  if (!judul || !berita) return alert("Isi judul dan berita!");
+
+  const newPost = db.ref('news').push();
+  newPost.set({judul, berita, like: 0});
+  alert("Berhasil upload!");
+  document.getElementById('judul').value = '';
+  document.getElementById('berita').value = '';
+}
+
+function tambahKomentar(newsId){
+  const input = document.getElementById('komentar-'+newsId);
+  const isiKomentar = input.value.trim();
+  if (!isiKomentar) return alert("Isi komentar dulu!");
+  db.ref(`news/${newsId}/komentar`).push({isiKomentar});
+  input.value = '';
+}
+
+function tambahLike(newsId){
+  const likeRef = db.ref(`news/${newsId}/like`);
+  likeRef.transaction(like => (like || 0) + 1);
+}
+
+function hapusBerita(newsId){
+  if (confirm("Yakin ingin hapus berita ini?")) {
+    db.ref('news/'+newsId).remove();
+    alert("Berita berhasil dihapus.");
+  }
+}
+
+function loadNews(){
+  const list = document.getElementById('news-list');
+  db.ref('news').on('value', snapshot => {
+    list.innerHTML = '';
+    snapshot.forEach(data => {
+      const id = data.key;
+      const {judul, berita, like, komentar} = data.val();
+
+      let komentarHTML = '';
+      if (komentar){
+        Object.values(komentar).forEach(k=>{
+          komentarHTML += `<div class="komentar">💬 ${k.isiKomentar}</div>`;
+        });
+      }
+
+      list.innerHTML += `
+      <div class="news">
+        <h3>${judul}</h3>
+        <p>${berita}</p>
+        <p>❤️ Likes: ${like||0} <button onclick="tambahLike('${id}')">Like</button></p>
+        <div id="komentar-list-${id}">
+          ${komentarHTML || '<i>Belum ada komentar</i>'}
+        </div>
+        <input type="text" id="komentar-${id}" placeholder="Tulis komentar">
+        <button onclick="tambahKomentar('${id}')">KIRIM KOMENTAR</button>
+        <button onclick="hapusBerita('${id}')">HAPUS BERITA</button>
+      </div>`;
+    });
+  });
+}
+loadNews();
+</script>
+
+</body>
+</html>
